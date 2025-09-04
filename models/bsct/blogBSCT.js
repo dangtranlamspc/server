@@ -28,7 +28,7 @@ const blogBSCTSchema = new mongoose.Schema({
     },
     isMoi : {
         type : Boolean,
-        default : true,
+        default : false,
     },
     creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, {
