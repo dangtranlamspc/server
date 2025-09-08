@@ -10,6 +10,8 @@ const sliderRouter = require('./routes/slider')
 const categoriesBSCTRouter = require('./routes/bsct/categoriesBSCT')
 const bsctRouter = require('./routes/bsct/bsct')
 const favouriteRouter = require('./routes/favourite')
+const categoriesThuVienRouter = require('./routes/thuvien/categoryThuVien')
+const thuvienRouter = require('./routes/thuvien/thuvien')
 
 
 
@@ -31,6 +33,8 @@ app.use('/api/slider', sliderRouter)
 app.use('/api/categoriesBSCT', categoriesBSCTRouter)
 app.use('/api/bsct', bsctRouter)
 app.use('/api/favourite', favouriteRouter)
+app.use('/api/catthuvien', categoriesThuVienRouter)
+app.use('/api/thuvien', thuvienRouter)
 
 
 const DB_URI = process.env.MONGODB_URL || `mongodb+srv://${process.env.USERNAME}:${process.env.PASSWORD}@cluster0.pgf8qqw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
