@@ -18,24 +18,18 @@ const usersSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    token: {
+      type: String,
+      default: null
+    },
     isVerified: {
       type: Boolean,
       default: true,
     },
-    pushTokens: [{
-      token: {
-        type: String,
-        required: true
-      },
-      device: {
-        type: String, // ios, android
-        default: 'unknown'
-      },
-      createdAt: {
-        type: Date,
-        default: Date.now
-      }
-    }],
+    tokenExpiry: {
+      type: Date,
+      default: null
+    },
     // verifyToken: {
     //   type: String,
     // },
@@ -54,8 +48,6 @@ const usersSchema = new mongoose.Schema(
   }
 );
 
-usersSchema.index({ 'pushTokens.token': 1 });
-
 usersSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
@@ -65,6 +57,11 @@ usersSchema.pre("save", async function (next) {
 
 usersSchema.methods.matchPassword = function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
+};
+
+usersSchema.methods.isTokenExpired = function () {
+  if (!this.tokenExpiry) return true;
+  return new Date() > this.tokenExpiry;
 };
 
 module.exports = mongoose.model("User", usersSchema);

@@ -11,6 +11,10 @@ const generateToken = (user) => {
   );
 };
 
+const calculateTokenExpiry = () => {
+  return new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
+};
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -46,24 +50,91 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: "Không tồn tại email này" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Không tồn tại email này" });
 
-  const isMatch = await user.matchPassword(password);
-  if (!isMatch) return res.status(400).json({ message: "Email hoặc mật khẩu không đúng" });
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(400).json({ message: "Email hoặc mật khẩu không đúng" });
 
     // if (!user.isVerified) {
     //   return res.status(403).json({ message: "Tài khoản chưa được xác thực" });
     // }
 
+    let token = user.token;
+    let needNewToken = false;
+
+    if (!token || user.tokenExpiry()) {
+      needNewToken = true;
+    } else {
+      try {
+        jwt.verify(token, process.env.JWT_SECRET)
+      } catch (error) {
+        needNewToken = true;
+      }
+    }
+
+    if (needNewToken) {
+      token = generateToken(user);
+      await User.findByIdAndUpdate(user._id, {
+        token: token,
+        tokenExpiry: calculateTokenExpiry()
+      })
+    }
+
     const userObject = user.toObject();
     delete userObject.password;
+    delete userObject.token;
+    delete userObject.tokenExpiry;
 
-    const token = generateToken(user);
-    res.json({ token, user : userObject });
+    // const token = generateToken(user);
+    res.json({ token, user: userObject });
   } catch (error) {
-      console.error("Lỗi đăng nhập:", error);
-      res.status(500).json({ message: "Lỗi server" });
+    console.error("Lỗi đăng nhập:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+exports.refreshToken = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy user" });
+    }
+
+    // Tạo token mới
+    const newToken = generateToken(user);
+
+    // Cập nhật trong database
+    await User.findByIdAndUpdate(userId, {
+      token: newToken,
+      tokenExpiry: calculateTokenExpiry()
+    });
+
+    res.json({
+      token: newToken,
+      message: "Token đã được làm mới"
+    });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    await User.findByIdAndUpdate(userId, {
+      token: null,
+      tokenExpiry: null
+    });
+
+    res.json({ message: "Đăng xuất thành công" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Lỗi server" });
   }
 };
 
@@ -90,7 +161,7 @@ exports.changePassword = async (req, res) => {
 
     res.json({ message: "Đổi mật khẩu thành công." });
   } catch (error) {
-     console.error("Change password error:", error);
+    console.error("Change password error:", error);
     res.status(500).json({ message: "Đã xảy ra lỗi.", error: error.message });
   }
 };
@@ -186,7 +257,7 @@ exports.createUser = async (req, res) => {
   // } catch (err) {
   //   res.status(500).json({ message: 'Lỗi server' });
   // }
-    try {
+  try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Thiếu thông tin" });
