@@ -63,7 +63,7 @@ exports.login = async (req, res) => {
     let token = user.token;
     let needNewToken = false;
 
-    if (!token || user.tokenExpiry()) {
+    if (!token || !user.tokenExpiry() || new Date(user.tokenExpiry).getTime() < Date.now()) {
       needNewToken = true;
     } else {
       try {
