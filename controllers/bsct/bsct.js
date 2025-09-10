@@ -1,6 +1,7 @@
 const BlogBSCT = require('../../models/bsct/blogBSCT');
 const CategoryBSCT = require('../../models/bsct/categoryBSCT')
 const cloudinary = require('../../utils/cloudinary');
+const Notification = require('../../models/notification')
 
 
 exports.getBlogsBSCT = async (req, res) => {
@@ -71,9 +72,9 @@ exports.creacteBlogBSCT = async (req, res) => {
       categoryBSCT: req.body.categoryBSCT,
       creatorId: req.user.id,
     });
-
     await newBlogBSCT.save();
-    res.status(201).json(newBlogBSCT)
+    await Notification.notifyNewNews(newBlogBSCT)
+    res.status(201).json({success : true , data : newBlogBSCT})
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: message.error })
   }

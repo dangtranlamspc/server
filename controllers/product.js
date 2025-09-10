@@ -1,6 +1,7 @@
 const Product = require('../models/product')
 const Category = require('../models/category')
 const Favourite = require('../models/favourite')
+const Notification = require('../models/notification')
 const cloudinary = require('../utils/cloudinary')
 const mongoose = require('mongoose');
 
@@ -19,7 +20,9 @@ exports.createProduct = async (req, res) => {
       creatorId: req.user.id,
     });
 
-    res.status(201).json({ message: 'Tạo sản phẩm thành công', product });
+    await Notification.notifyNewProduct(product)
+
+    res.status(201).json({success : true, message: 'Tạo sản phẩm thành công', product });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Tạo sản phẩm thất bại', error: error.message });
