@@ -1,14 +1,16 @@
 const Product = require('../models/product')
 const Category = require('../models/category')
 const Favourite = require('../models/favourite')
-const Notification = require('../models/notification')
 const cloudinary = require('../utils/cloudinary')
+const User = require('../models/user')
 const mongoose = require('mongoose');
+
 
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, category, isActive, isMoi } = req.body;
-    const imageUrls = req.files.map(file => file.path); // URLs từ Cloudinary
+    const imageUrls = req.files.map(file => file.path);
+    const users = await User.find({ expoPushToken: { $exists: true } })
 
     const product = await Product.create({
       name,
@@ -20,9 +22,18 @@ exports.createProduct = async (req, res) => {
       creatorId: req.user.id,
     });
 
-    await Notification.notifyNewProduct(product)
+    for (const user of users) {
+      if (user.expoPushToken) {
+        await sendPushNotification(
+          user.expoPushToken,
+          "Sản phẩm mới!",
+          `Đã có sản phẩm ${product.name} vừa được thêm`,
+          { productId: product._id }
+        );
+      }
+    }
 
-    res.status(201).json({success : true, message: 'Tạo sản phẩm thành công', product });
+    res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Tạo sản phẩm thất bại', error: error.message });
@@ -226,7 +237,7 @@ exports.getProductById = async (req, res) => {
 exports.getProductsByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
-    const{page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = ''} = req.query;
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '' } = req.query;
 
     if (!categoryId) {
       return res.status(404).json({
