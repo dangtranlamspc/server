@@ -56,14 +56,11 @@ exports.login = async (req, res) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) return res.status(400).json({ message: "Email hoặc mật khẩu không đúng" });
 
-    // if (!user.isVerified) {
-    //   return res.status(403).json({ message: "Tài khoản chưa được xác thực" });
-    // }
-
     let token = user.token;
     let needNewToken = false;
 
-    if (!token || !user.tokenExpiry() || new Date(user.tokenExpiry).getTime() < Date.now()) {
+    // Corrected line here: changed user.tokenExpiry() to user.tokenExpiry
+    if (!token || !user.tokenExpiry || new Date(user.tokenExpiry).getTime() < Date.now()) {
       needNewToken = true;
     } else {
       try {
@@ -86,7 +83,6 @@ exports.login = async (req, res) => {
     delete userObject.token;
     delete userObject.tokenExpiry;
 
-    // const token = generateToken(user);
     res.json({ token, user: userObject });
   } catch (error) {
     console.error("Lỗi đăng nhập:", error);
