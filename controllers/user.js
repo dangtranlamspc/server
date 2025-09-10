@@ -11,6 +11,16 @@ const generateToken = (user) => {
   );
 };
 
+exports.savePushToken = async (req, res) => {
+  try {
+    const {token} = req.body;
+    const userId = req.user._id
+    await User.findByIdAndUpdate(userId, {expoPushToken : token})
+  } catch (error) {
+    res.status(500).json({error : error.message})
+  }
+}
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
