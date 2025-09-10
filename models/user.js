@@ -22,6 +22,20 @@ const usersSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    pushTokens: [{
+      token: {
+        type: String,
+        required: true
+      },
+      device: {
+        type: String, // ios, android
+        default: 'unknown'
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
     // verifyToken: {
     //   type: String,
     // },
@@ -39,6 +53,8 @@ const usersSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+usersSchema.index({ 'pushTokens.token': 1 });
 
 usersSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

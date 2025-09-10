@@ -3,14 +3,12 @@ const Category = require('../models/category')
 const Favourite = require('../models/favourite')
 const cloudinary = require('../utils/cloudinary')
 const User = require('../models/user')
-const mongoose = require('mongoose');
 
 
 exports.createProduct = async (req, res) => {
   try {
     const { name, description, category, isActive, isMoi } = req.body;
     const imageUrls = req.files.map(file => file.path);
-    const users = await User.find({ expoPushToken: { $exists: true } })
 
     const product = await Product.create({
       name,
@@ -21,17 +19,6 @@ exports.createProduct = async (req, res) => {
       isMoi,
       creatorId: req.user.id,
     });
-
-    for (const user of users) {
-      if (user.expoPushToken) {
-        await sendPushNotification(
-          user.expoPushToken,
-          "Sản phẩm mới!",
-          `Đã có sản phẩm ${product.name} vừa được thêm`,
-          { productId: product._id }
-        );
-      }
-    }
 
     res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product });
   } catch (error) {
