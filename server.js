@@ -35,7 +35,7 @@ app.use('/api/bsct', bsctRouter)
 app.use('/api/favourite', favouriteRouter)
 app.use('/api/catthuvien', categoriesThuVienRouter)
 app.use('/api/thuvien', thuvienRouter)
-app.use('api/notifications', notificationRouter)
+app.use('/api/notifications', notificationRouter)
 
 
 const DB_URI = process.env.MONGODB_URL || `mongodb+srv://${process.env.USERNAME}:${process.env.PASSWORD}@cluster0.pgf8qqw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
