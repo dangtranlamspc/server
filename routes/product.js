@@ -18,5 +18,4 @@ router.get('/with-favourites', productController.getProductsByFavourite);
 router.get('/categories', categoryController.getAllCategories);
 
 
-
 module.exports = router;

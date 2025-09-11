@@ -2,6 +2,7 @@ const Product = require('../models/product')
 const Category = require('../models/category')
 const Favourite = require('../models/favourite')
 const cloudinary = require('../utils/cloudinary')
+const {notificationService} = require('../services/notificationService')
 const User = require('../models/user')
 
 
@@ -19,6 +20,15 @@ exports.createProduct = async (req, res) => {
       isMoi,
       creatorId: req.user.id,
     });
+
+    if (product.isActive) {
+      try {
+        const notificationResult = await notificationService.notifyNewProduct(product);
+        console.log('Notification sent:', notificationResult);
+      } catch (error) {
+        console.error('Failed to send notification:', notificationError);
+      }
+    }
 
     res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product });
   } catch (error) {

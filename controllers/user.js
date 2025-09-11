@@ -90,6 +90,62 @@ exports.login = async (req, res) => {
   }
 };
 
+exports.savePushToken = async (req, res) => {
+  try {
+    const { expoPushToken } = req.body;
+    const userId = req.user.id; // Từ middleware authenticate
+
+    if (!expoPushToken) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Push token is required' 
+      });
+    }
+
+    const result = await notificationService.savePushToken(userId, expoPushToken);
+
+    if (result) {
+      res.json({ 
+        success: true, 
+        message: 'Push token saved successfully' 
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        message: 'Invalid push token format' 
+      });
+    }
+  } catch (error) {
+    console.error('Error saving push token:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+};
+
+exports.toggleNotification = async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const userId = req.user.id;
+
+    await User.findByIdAndUpdate(userId, {
+      notificationEnabled: enabled
+    });
+
+    res.json({ 
+      success: true, 
+      message: `Notifications ${enabled ? 'enabled' : 'disabled'}` 
+    });
+  } catch (error) {
+    console.error('Error toggling notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+};
+
 exports.refreshToken = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -124,7 +180,8 @@ exports.logout = async (req, res) => {
 
     await User.findByIdAndUpdate(userId, {
       token: null,
-      tokenExpiry: null
+      tokenExpiry: null,
+      expoPushToken: null
     });
 
     res.json({ message: "Đăng xuất thành công" });
