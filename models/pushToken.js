@@ -24,6 +24,10 @@ const pushTokenSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true,
+    }, 
+    lastUsed: {
+        type: Date,
+        default: Date.now
     },
 }, {
     timestamps: true
