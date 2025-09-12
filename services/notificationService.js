@@ -1,172 +1,195 @@
-const { Expo } = require('expo-server-sdk')
-const User = require('../models/user')
+// services/notificationService.js
+const { Expo } = require('expo-server-sdk');
 
-class NotificationService {
-    constructor() {
-        this.expo = new Expo();
+// Tạo một instance mới của Expo SDK
+const expo = new Expo({
+  accessToken: process.env.EXPO_ACCESS_TOKEN, // Tùy chọn
+  useFcmV1: true // Sử dụng FCM v1 API
+});
+
+// Model để lưu push tokens của users
+const PushToken = require('../models/pushToken') // Bạn cần tạo model này
+
+const notificationService = {
+  // Lưu push token khi user đăng nhập từ mobile
+  async savePushToken(userId, pushToken) {
+    try {
+      if (!Expo.isExpoPushToken(pushToken)) {
+        console.error(`Push token ${pushToken} is not a valid Expo push token`);
+        return { success: false, error: 'Invalid push token' };
+      }
+
+      await PushToken.findOneAndUpdate(
+        { userId },
+        { pushToken, isActive: true, updatedAt: new Date() },
+        { upsert: true }
+      );
+
+      return { success: true, message: 'Push token saved successfully' };
+    } catch (error) {
+      console.error('Error saving push token:', error);
+      return { success: false, error: error.message };
     }
+  },
 
-    /**
-     * Gửi notification đến nhiều users
-     * @param {Array} users - Array of user objects
-     * @param {Object} notification - Notification data
-     */
-    async sendNotificationToMultipleUsers(users, notification) {
-        const validTokens = users
-            .filter(user => user.expoPushToken && Expo.isExpoPushToken(user.expoPushToken))
-            .map(user => user.expoPushToken);
+  // Gửi thông báo sản phẩm mới
+  async notifyNewProduct(product) {
+    try {
+      // Lấy tất cả push tokens active
+      const activeTokens = await PushToken.find({ isActive: true });
+      
+      if (activeTokens.length === 0) {
+        return { success: true, message: 'No active push tokens found' };
+      }
 
-        if (validTokens.length === 0) {
-            console.log('No valid push tokens found');
-            return { success: false, sentCount: 0 };
+      // Tạo messages để gửi
+      const messages = [];
+      for (const tokenDoc of activeTokens) {
+        if (!Expo.isExpoPushToken(tokenDoc.pushToken)) {
+          console.error(`Push token ${tokenDoc.pushToken} is not valid`);
+          continue;
         }
 
-        const messages = validTokens.map(token => ({
-            to: token,
-            title: notification.title,
-            body: notification.body,
-            data: notification.data || {},
-            sound: notification.sound || 'default',
-            badge: notification.badge || null,
+        messages.push({
+          to: tokenDoc.pushToken,
+          sound: 'default',
+          title: '🎉 Sản phẩm mới!',
+          body: `${product.name} - ${product.description?.substring(0, 50) || 'Khám phá ngay!'}`,
+          data: {
+            productId: product._id,
+            productName: product.name,
+            category: product.category,
+            type: 'new_product'
+          },
+          categoryId: 'new_product',
+          priority: 'high'
+        });
+      }
+
+      if (messages.length === 0) {
+        return { success: true, message: 'No valid push tokens to send to' };
+      }
+
+      // Chia messages thành chunks để gửi
+      const chunks = expo.chunkPushNotifications(messages);
+      const tickets = [];
+
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          tickets.push(...ticketChunk);
+        } catch (error) {
+          console.error('Error sending chunk:', error);
+        }
+      }
+
+      // Xử lý receipts sau (tùy chọn)
+      setTimeout(() => {
+        this.handlePushReceipts(tickets);
+      }, 15000);
+
+      return {
+        success: true,
+        message: `Sent notifications to ${messages.length} devices`,
+        tickets
+      };
+
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Xử lý receipts để kiểm tra trạng thái gửi
+  async handlePushReceipts(tickets) {
+    const receiptIds = tickets
+      .filter(ticket => ticket.id)
+      .map(ticket => ticket.id);
+
+    if (receiptIds.length === 0) return;
+
+    const receiptIdChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
+    
+    for (const chunk of receiptIdChunks) {
+      try {
+        const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
+        
+        for (const receiptId in receipts) {
+          const receipt = receipts[receiptId];
+          
+          if (receipt.status === 'error') {
+            console.error(`Error sending notification: ${receipt.message}`);
+            
+            if (receipt.details && receipt.details.error) {
+              // Token không hợp lệ, xóa khỏi database
+              if (receipt.details.error === 'DeviceNotRegistered') {
+                await PushToken.deleteOne({ pushToken: receipt.details.expoPushToken });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching receipts:', error);
+      }
+    }
+  },
+
+  // Gửi thông báo custom
+  async sendCustomNotification(userIds, title, body, data = {}) {
+    try {
+      const tokens = await PushToken.find({
+        userId: { $in: userIds },
+        isActive: true
+      });
+
+      if (tokens.length === 0) {
+        return { success: true, message: 'No active tokens found for specified users' };
+      }
+
+      const messages = tokens
+        .filter(token => Expo.isExpoPushToken(token.pushToken))
+        .map(token => ({
+          to: token.pushToken,
+          sound: 'default',
+          title,
+          body,
+          data,
+          priority: 'high'
         }));
 
-        let totalSent = 0;
+      const chunks = expo.chunkPushNotifications(messages);
+      const tickets = [];
 
-        try {
-            // Gửi theo batch để tránh rate limit
-            const chunks = this.expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+      }
 
-            for (const chunk of chunks) {
-                const tickets = await this.expo.sendPushNotificationsAsync(chunk);
-                totalSent += tickets.length;
-                console.log(`Notification batch sent: ${tickets.length} messages`);
-            }
+      return {
+        success: true,
+        message: `Sent to ${messages.length} devices`,
+        tickets
+      };
 
-            return { success: true, sentCount: totalSent };
-        } catch (error) {
-            console.error('Error sending notifications:', error);
-            return { success: false, sentCount: totalSent, error: error.message };
-        }
+    } catch (error) {
+      console.error('Error sending custom notification:', error);
+      return { success: false, error: error.message };
     }
+  },
 
-    /**
-     * Gửi thông báo sản phẩm mới đến tất cả users
-     * @param {Object} product - Product object từ MongoDB
-     */
-    async notifyNewProduct(product) {
-        try {
-            // Lấy tất cả users có push token và bật notification
-            const users = await this.getAllUsersWithPushTokens();
-
-            if (users.length === 0) {
-                console.log('No users found to send notification');
-                return { success: false, message: 'No users to notify' };
-            }
-
-            const notification = {
-                title: '🆕 Sản phẩm mới!',
-                body: `${product.name} vừa được thêm vào cửa hàng`,
-                data: {
-                    type: 'new_product',
-                    productId: product._id.toString(),
-                    screen: 'ProductDetail',
-                    product: {
-                        id: product._id.toString(),
-                        name: product.name,
-                        description: product.description,
-                        category: product.category,
-                        images: product.images,
-                        isMoi: product.isMoi,
-                    }
-                },
-                badge: 1,
-                sound: 'default',
-            };
-
-            const result = await this.sendNotificationToMultipleUsers(users, notification);
-
-            console.log(`New product notification result:`, {
-                productName: product.name,
-                totalUsers: users.length,
-                sentCount: result.sentCount,
-                success: result.success
-            });
-
-            return result;
-
-        } catch (error) {
-            console.error('Error in notifyNewProduct:', error);
-            return { success: false, error: error.message };
-        }
+  // Xóa push token khi user logout
+  async removePushToken(userId) {
+    try {
+      await PushToken.findOneAndUpdate(
+        { userId },
+        { isActive: false }
+      );
+      return { success: true, message: 'Push token deactivated' };
+    } catch (error) {
+      console.error('Error removing push token:', error);
+      return { success: false, error: error.message };
     }
-
-    /**
-     * Lấy tất cả users có push token từ MongoDB
-     * @returns {Promise<Array>} - Array of users
-     */
-    async getAllUsersWithPushTokens() {
-        try {
-            const users = await User.find({
-                expoPushToken: { $ne: null },
-                notificationEnabled: true,
-                isActive: true
-            }).select('_id expoPushToken name email');
-
-            return users;
-        } catch (error) {
-            console.error('Error fetching users with push tokens:', error);
-            return [];
-        }
-    }
-
-    /**
-     * Lưu push token vào database
-     * @param {string} userId - User ID
-     * @param {string} token - Expo push token
-     */
-    async savePushToken(userId, token) {
-        try {
-            if (!Expo.isExpoPushToken(token)) {
-                console.log('Invalid push token format');
-                return false;
-            }
-
-            await User.findByIdAndUpdate(userId, {
-                expoPushToken: token,
-                notificationEnabled: true
-            });
-
-            console.log(`Push token saved for user ${userId}`);
-            return true;
-        } catch (error) {
-            console.error('Error saving push token:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Xóa push token (khi user logout)
-     * @param {string} userId - User ID
-     */
-    async removePushToken(userId) {
-        try {
-            await User.findByIdAndUpdate(userId, {
-                expoPushToken: null
-            });
-
-            console.log(`Push token removed for user ${userId}`);
-            return true;
-        } catch (error) {
-            console.error('Error removing push token:', error);
-            return false;
-        }
-    }
-}
-
-// Export singleton instance
-const notificationService = new NotificationService();
-
-module.exports = {
-    NotificationService,
-    notificationService,
+  }
 };
+
+module.exports = notificationService;

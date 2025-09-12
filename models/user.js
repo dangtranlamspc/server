@@ -30,26 +30,6 @@ const usersSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
-    expoPushToken: {
-      type: String,
-      default: null,
-    },
-    notificationEnabled: {
-      type: Boolean,
-      default: true,
-    },
-    // verifyToken: {
-    //   type: String,
-    // },
-    // verifyTokenExpires: {
-    //   type: Date,
-    // },
-    // resetPasswordToken: {
-    //   type: String,
-    // },
-    // resetPasswordExpires: {
-    //   type: Date,
-    // }
   },
   {
     timestamps: true,

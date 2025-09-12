@@ -12,8 +12,6 @@ router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 router.post('/logout',protect, authController.logout)
 router.post('/refresh-token',protect, authController.refreshToken);
-router.post('/save-push-token', authController.savePushToken);
-router.post('/toggle-notification', authController.toggleNotification);
 
 
 router.get('/', authController.getUsers);

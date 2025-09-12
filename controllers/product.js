@@ -2,8 +2,7 @@ const Product = require('../models/product')
 const Category = require('../models/category')
 const Favourite = require('../models/favourite')
 const cloudinary = require('../utils/cloudinary')
-const {notificationService} = require('../services/notificationService')
-const User = require('../models/user')
+const notificationService = require('../services/notificationService')
 
 
 exports.createProduct = async (req, res) => {
@@ -23,14 +22,26 @@ exports.createProduct = async (req, res) => {
 
     if (product.isActive) {
       try {
+        console.log('Sending notification for new product...');
         const notificationResult = await notificationService.notifyNewProduct(product);
-        console.log('Notification sent:', notificationResult);
-      } catch (error) {
-        console.error('Failed to send notification:', notificationError);
+        console.log('Notification sent successfully:', notificationResult);
+
+        // Log thêm thông tin
+        if (notificationResult.success) {
+          console.log(`✅ Notification sent to ${notificationResult.tickets?.length || 0} devices`);
+        } else {
+          console.log('❌ Notification failed:', notificationResult.error);
+        }
+      } catch (notificationError) {
+        // Không để lỗi thông báo ảnh hưởng đến việc tạo sản phẩm
+        console.error('❌ Failed to send notification:', notificationError.message);
+        console.error('Notification error details:', notificationError);
       }
+    } else {
+      console.log('Product is not active, skipping notification');
     }
 
-    res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product });
+    res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product, notificationSent: product.isActive });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Tạo sản phẩm thất bại', error: error.message });
@@ -131,7 +142,20 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findById(productId);
     if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
 
+    const wasInactive = !existingProduct.isActive;
+    const willBeActive = isActive;
 
+
+    // Nếu sản phẩm vừa được kích hoạt từ trạng thái không hoạt động
+    if (wasInactive && willBeActive) {
+      try {
+        console.log('Product activated, sending notification...');
+        const notificationResult = await notificationService.notifyNewProduct(product);
+        console.log('Activation notification sent:', notificationResult);
+      } catch (notificationError) {
+        console.error('Failed to send activation notification:', notificationError);
+      }
+    }
 
     // Nếu có ảnh mới → xoá ảnh cũ
     // if ( req.files && req.files.length > 0) {
@@ -197,6 +221,36 @@ exports.getProductById = async (req, res) => {
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi lấy chi tiết', error: error.message });
+  }
+};
+
+exports.testNotification = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      });
+    }
+
+    const result = await notificationService.notifyNewProduct(product);
+
+    res.json({
+      success: true,
+      message: 'Test notification sent',
+      result
+    });
+
+  } catch (error) {
+    console.error('Error testing notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test notification failed',
+      error: error.message
+    });
   }
 };
 
