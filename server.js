@@ -14,7 +14,6 @@ const categoriesThuVienRouter = require('./routes/thuvien/categoryThuVien')
 const thuvienRouter = require('./routes/thuvien/thuvien')
 const notificationRouter = require('./routes/notification')
 const {startTokenCleanup} = require('./utils/tokenCleanup')
-const pushNotificatonRouter = require('./routes/pushNotification')
 
 
 const app = express();
@@ -38,7 +37,6 @@ app.use('/api/favourite', favouriteRouter)
 app.use('/api/catthuvien', categoriesThuVienRouter)
 app.use('/api/thuvien', thuvienRouter)
 app.use('/api/notifications', notificationRouter)
-app.use('/api/push-notification', pushNotificatonRouter)
 
 startTokenCleanup();
 

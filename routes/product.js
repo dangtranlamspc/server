@@ -16,19 +16,6 @@ router.delete('/:id',protect, isAdmin, productController.deleteProduct);
 router.get('/category/:categoryId', productController.getProductsByCategory);
 router.get('/with-favourites', productController.getProductsByFavourite);
 router.get('/categories', categoryController.getAllCategories);
-router.post('/:productId/test-notification', 
-  protect, 
-  (req, res, next) => {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ admin mới có thể test thông báo'
-      });
-    }
-    next();
-  },
-  productController.testNotification
-);
 
 
 module.exports = router;
