@@ -7,12 +7,12 @@ const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: "7d" }
   );
 };
 
 const calculateTokenExpiry = () => {
-  return new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 1 day
 };
 
 exports.register = async (req, res) => {
