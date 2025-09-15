@@ -9,7 +9,10 @@ const storage = new CloudinaryStorage({
     let folder = 'uploads'
     if (req.baseUrl.includes('product')) folder = 'product';
     if (req.baseUrl.includes('slider')) folder = 'slider';
-    if (req.baseUrl.includes('blogBSCT')) folder = 'blogBSCT';
+    if (req.baseUrl.includes('bsct')) folder = 'bsct';
+    if (req.baseUrl.includes('nndt')) folder = 'nndt';
+    if (req.baseUrl.includes('ctgd')) folder = 'ctgd';
+    if (req.baseUrl.includes('tintuc')) folder = 'tintuc';
 
     return {
       folder : folder,

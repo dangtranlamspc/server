@@ -1,7 +1,6 @@
 const BlogBSCT = require('../../models/bsct/blogBSCT');
 const CategoryBSCT = require('../../models/bsct/categoryBSCT')
 const cloudinary = require('../../utils/cloudinary');
-const Notification = require('../../models/notification')
 
 
 exports.getBlogsBSCT = async (req, res) => {
@@ -58,9 +57,10 @@ exports.getBlogsBSCTById = async (req, res) => {
 exports.creacteBlogBSCT = async (req, res) => {
   try {
     let imageUrl = "";
+    let imageId = "";
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, { folder: "blogBSCT" })
-      imageUrl = result.secure_url;
+      imageUrl = req.file.path;
+      imageId = req.file.filename || req.file.public_id || "";
     }
     const newBlogBSCT = new BlogBSCT({
       title: req.body.title,
@@ -69,12 +69,12 @@ exports.creacteBlogBSCT = async (req, res) => {
       isActive: req.body.isActive,
       isMoi: req.body.isMoi,
       images: imageUrl,
+      imageId: imageId,
       categoryBSCT: req.body.categoryBSCT,
       creatorId: req.user.id,
     });
     await newBlogBSCT.save();
-    await Notification.notifyNewNews(newBlogBSCT)
-    res.status(201).json({success : true , data : newBlogBSCT})
+    res.status(201).json({ success: true, data: newBlogBSCT })
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: message.error })
   }
@@ -86,9 +86,17 @@ exports.updateBlogBSCT = async (req, res) => {
     if (!blogBSCT) return res.status(404).json({ message: 'Không tìm thấy bài viết' });
 
     let thumnailUrl = blogBSCT.images;
+    let imageId = blogBSCT.imageId;
+    // if (req.file) {
+    //   const result = await cloudinary.uploader.upload(req.file.path, { folder: "blogBSCT" });
+    //   thumnailUrl = result.secure_url;
+    // }
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, { folder: "blogBSCT" });
-      thumnailUrl = result.secure_url;
+      if (blogBSCT.imageId) {
+        await cloudinary.uploader.destroy(blogBSCT.imageId);
+      }
+      thumnailUrl = req.file.path; // secure_url
+      imageId = req.file.filename || req.file.public_id;
     }
 
     blogBSCT.title = req.body.title ?? blogBSCT.title;
@@ -97,6 +105,7 @@ exports.updateBlogBSCT = async (req, res) => {
     blogBSCT.isMoi = req.body.isMoi ?? blogBSCT.isMoi;
     blogBSCT.summary = req.body.summary ?? blogBSCT.summary;
     blogBSCT.images = thumnailUrl;
+    blogBSCT.imageId = imageId;
     blogBSCT.categoryBSCT = req.body.categoryBSCT ?? blogBSCT.categoryBSCT;
 
     await blogBSCT.save();
@@ -160,40 +169,4 @@ exports.getNewPostBSCT = async (req, res) => {
     .limit(limit)
   res.json(postBsct)
 }
-
-
-
-
-// try {
-//   const page = parseInt(req.query.page) || 1;
-//   const pageSize = parseInt(req.query.pageSize) || 10;
-//   const searchText = req.query.searchText || "";
-
-//   const filter = searchText ? {
-//     title : { $regex : searchText, $options : "i"}
-//   } : {};
-
-//   // if (categoryBSCT) {
-//   //   filter.categoryBSCT = categoryBSCT;
-//   // }
-
-//   console.log(filter)
-
-//   const total = await BlogBSCT.countDocuments(filter);
-
-//   const bscts = await BlogBSCT.find(filter)
-//     .populate('categoryBSCT', 'name')
-//     .populate('creatorId','email')
-//     .skip((page - 1) * pageSize)
-//     .limit(pageSize)
-//     .sort({createdAt : -1});
-
-//   res.json({
-//     total,
-//     page,
-//     bscts,
-//   });
-// } catch (error) {
-//   res.status(500).json({ message: 'Lỗi khi lấy sản phẩm', error: error.message });
-// }
 

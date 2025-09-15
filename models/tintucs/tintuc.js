@@ -1,6 +1,6 @@
 const mongoose = require('mongoose')
 
-const blogBSCTSchema = new mongoose.Schema({
+const tinTucSchema = new mongoose.Schema({
     title: {
         type: String,
         require: true,
@@ -18,9 +18,9 @@ const blogBSCTSchema = new mongoose.Schema({
         require: true,
     },
     imageId: String,
-    categoryBSCT: {
+    categoryTinTuc: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'CategoryBSCT',
+        ref: 'CategoryTinTuc',
         require: true,
     },
     isActive : {
@@ -37,4 +37,4 @@ const blogBSCTSchema = new mongoose.Schema({
 });
 
 
-module.exports = mongoose.model('BlogBSCT', blogBSCTSchema)
+module.exports = mongoose.model('TinTuc', tinTucSchema)

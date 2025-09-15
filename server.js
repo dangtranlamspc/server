@@ -14,7 +14,12 @@ const categoriesThuVienRouter = require('./routes/thuvien/categoryThuVien')
 const thuvienRouter = require('./routes/thuvien/thuvien')
 const notificationRouter = require('./routes/notification')
 const {startTokenCleanup} = require('./utils/tokenCleanup')
-
+const categoryNNDTRouter = require('./routes/nndt/categorynndt')
+const nndtRouter = require('./routes/nndt/nndt')
+const categoryCTGDRouter = require('./routes/ctgd/categoryCTGD')
+const ctgdRouter = require('./routes/ctgd/ctgd')
+const categoryTinTucRouter = require('./routes/tintucs/categoryTinTuc')
+const tintucRouter = require('./routes/tintucs/tintuc')
 
 const app = express();
 
@@ -37,6 +42,12 @@ app.use('/api/favourite', favouriteRouter)
 app.use('/api/catthuvien', categoriesThuVienRouter)
 app.use('/api/thuvien', thuvienRouter)
 app.use('/api/notifications', notificationRouter)
+app.use('/api/categoryNNDT', categoryNNDTRouter)
+app.use('/api/nndt', nndtRouter)
+app.use('/api/categoryCTGD', categoryCTGDRouter)
+app.use('/api/ctgds', ctgdRouter)
+app.use('/api/categoryTinTuc', categoryTinTucRouter)
+app.use('/api/tintucs', tintucRouter)
 
 startTokenCleanup();
 

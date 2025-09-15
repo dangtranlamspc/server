@@ -2,20 +2,30 @@ const mongoose = require('mongoose')
 
 const favouriteSchema = new mongoose.Schema(
     {
-        userId : {
+        userId: {
             // type : mongoose.Schema.Types.ObjectId, 
             // ref : 'User',
-            type : String,
-            trim : true,
+            type: String,
+            trim: true,
         },
-        productId : {
-            type : mongoose.Schema.Types.ObjectId,
-            ref : 'Product',
-            required : true,
+        productId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Product',
+            required: true,
+        },
+        productnndtId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'ProductNongNghiepDoThi',
+            required: true,
+        },
+        productctgdId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'ProductConTrungGiaDung',
+            required: true,
         },
         createdAt: { type: Date, default: Date.now }
     },
-    {timestamps : true}
+    { timestamps: true }
 );
 
 favouriteSchema.index({ userId: 1, productId: 1 }, { unique: true });
