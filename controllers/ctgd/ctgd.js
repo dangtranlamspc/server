@@ -141,109 +141,7 @@ exports.getProductCTGDsByFavourite = async (req, res) => {
 }
 
 
-// exports.updateProductCTGD = async (req, res) => {
-//   try {
-//     const productCTGDId = req.params.id;
-//     const { name, description, categoryctgd, isActive, isMoi, oldImages } = req.body;
-
-//     const productctgd = await ProductCTGD.findById(productCTGDId);
-//     if (!productctgd) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
-
-//     let keepImages = [];
-//     if (oldImages) {
-//       try {
-//         keepImages = JSON.parse(oldImages);
-//       } catch {
-//         keepImages = [];
-//       }
-//     }
-
-//     // Ảnh mới upload
-//     let newImageUrls = [];
-//     if (req.files && req.files.length > 0) {
-//       newImageUrls = req.files.map(f => f.path);
-//     }
-
-//     // Merge ảnh cũ còn giữ + ảnh mới
-//     const finalImages = [...keepImages, ...newImageUrls];
-
-//     const updated = await Product.findByIdAndUpdate(
-//       id,
-//       {
-//         name,
-//         description,
-//         categoryctgd,
-//         isActive,
-//         isMoi,
-//         images: finalImages,
-//       },
-//       { new: true }
-//     );
-
-//     res.json({ message: 'Cập nhật thành công', updated });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Lỗi cập nhật sản phẩm', error: error.message });
-//   }
-
-// };
-
-// exports.updateProductCTGD = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const product = await ProductCTGD.findById(id);
-//     if (!product) {
-//       return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
-//     }
-
-//     if (req.user.role !== "admin" && product.user.toString() !== req.user.id) {
-//       return res.status(403).json({ message: "Bạn không có quyền sửa sản phẩm này" });
-//     }
-
-//     const { name, description, categoryctgd, isActive, isMoi, images: oldImages } = req.body;
-
-//     // Lấy ảnh mới từ multer-storage-cloudinary
-//     let newImages = [];
-//     if (req.files && req.files.length > 0) {
-//       newImages = req.files.map((file) => ({
-//         url: file.path,       // đường dẫn ảnh Cloudinary
-//         imageId: file.filename, // public_id Cloudinary
-//       }));
-//     }
-
-//     // Tìm ảnh bị xoá (ảnh cũ không còn trong danh sách client gửi)
-//     const removedImages = product.images.filter(
-//       (img) => !oldImages.some((old) => old.imageId === img.imageId)
-//     );
-
-//     // Xoá trên Cloudinary
-//     for (const img of removedImages) {
-//       if (img.imageId) {
-//         await cloudinary.uploader.destroy(img.imageId);
-//       }
-//     }
-
-//     // Gộp ảnh cũ + mới
-//     const updatedImages = [
-//       ...oldImages,  // giữ ảnh cũ còn lại
-//       ...newImages,  // thêm ảnh mới
-//     ];
-
-//     // Update dữ liệu
-//     product.name = name || product.name;
-//     product.description = description || product.description;
-//     product.categoryctgd = categoryctgd || product.categoryctgd;
-//     product.isActive = isActive !== undefined ? isActive : product.isActive;
-//     product.isMoi = isMoi !== undefined ? isMoi : product.isMoi;
-//     product.images = updatedImages;
-
-//     await product.save();
-
-//     res.json({ message: "Cập nhật sản phẩm thành công", product });
-//   } catch (error) {
-//     res.status(500).json({ message: "Lỗi cập nhật sản phẩm", error: error.message });
-//   }
-// };
-
+// Backend - Controller cập nhật sản phẩm
 exports.updateProductCTGD = async (req, res) => {
   try {
     const { id } = req.params;
@@ -257,7 +155,7 @@ exports.updateProductCTGD = async (req, res) => {
       return res.status(403).json({ message: "Bạn không có quyền sửa sản phẩm này" });
     }
 
-    let { name, description, categoryctgd, isActive, isMoi, images: oldImages } = req.body;
+    let { name, description, categoryctgd, isActive, isMoi, oldImages } = req.body;
 
     // 🛠️ Fix: đảm bảo oldImages là array
     if (typeof oldImages === "string") {
@@ -271,6 +169,13 @@ exports.updateProductCTGD = async (req, res) => {
       oldImages = [];
     }
 
+    // // Debug logs
+    // console.log("=== UPDATE PRODUCT DEBUG ===");
+    // console.log("Product ID:", id);
+    // console.log("Current product images:", product.images);
+    // console.log("Old images from frontend:", oldImages);
+    // console.log("New files from multer:", req.files?.length || 0);
+
     // 🆕 Lấy ảnh mới từ multer-storage-cloudinary
     let newImages = [];
     if (req.files && req.files.length > 0) {
@@ -278,21 +183,31 @@ exports.updateProductCTGD = async (req, res) => {
         url: file.path,         // Cloudinary URL
         imageId: file.filename, // Cloudinary public_id
       }));
+      // console.log("New images created:", newImages);
     }
 
-    // 🗑️ Tìm ảnh bị xoá (ảnh cũ không còn trong danh sách client gửi lên)
+    // 🗑️ Tìm ảnh bị xoá (so sánh với oldImages từ frontend)
     const removedImages = product.images.filter(
-      (img) => !oldImages.some((old) => old.imageId === img.imageId)
+      (img) => !oldImages.some((oldImg) => oldImg.imageId === img.imageId)
     );
 
+    // console.log("Images to remove:", removedImages);
+
+    // Xóa ảnh đã remove khỏi Cloudinary
     for (const img of removedImages) {
       if (img.imageId) {
-        await cloudinary.uploader.destroy(img.imageId);
+        try {
+          await cloudinary.uploader.destroy(img.imageId);
+          console.log(`Đã xóa ảnh: ${img.imageId}`);
+        } catch (error) {
+          console.error(`Lỗi xóa ảnh ${img.imageId}:`, error);
+        }
       }
     }
 
-    // ✅ Gộp ảnh còn giữ + mới
+    // ✅ Gộp ảnh còn giữ + ảnh mới
     const updatedImages = [...oldImages, ...newImages];
+    // console.log("Final updated images:", updatedImages);
 
     // 📝 Update dữ liệu
     product.name = name ?? product.name;
@@ -304,9 +219,12 @@ exports.updateProductCTGD = async (req, res) => {
 
     await product.save();
 
+    // console.log("Product saved with images:", product.images);
+    // console.log("=== END DEBUG ===");
+
     res.json({ message: "Cập nhật sản phẩm thành công", product });
   } catch (error) {
-    console.error("Update Product Error:", error); // log ra console
+    console.error("Update Product Error:", error);
     res.status(500).json({ message: "Lỗi cập nhật sản phẩm", error: error.message });
   }
 };
