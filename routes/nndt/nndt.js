@@ -11,7 +11,7 @@ router.get('/', productNNDTController.getProductNNDTs);
 // router.get('/new', productController.getProductNew);
 router.get('/new', productNNDTController.getProductNew);
 router.get('/:id', productNNDTController.getProductById);
-router.put('/:id', upload.array('images',5), productNNDTController.updateProductNNDT);
+router.put('/:id', upload.array('images',5),protect, isAdmin, productNNDTController.updateProductNNDT);
 router.delete('/:id',protect, isAdmin, productNNDTController.deleteProductNNDT);
 router.get('/categorynndt/:categoryNNDTId', productNNDTController.getProductsByCategory);
 router.get('/with-favourites', productNNDTController.getProductNNDTsByFavourite);

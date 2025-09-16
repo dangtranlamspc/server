@@ -121,21 +121,6 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findById(productId);
     if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
 
-    const wasInactive = !existingProduct.isActive;
-    const willBeActive = isActive;
-
-
-    // Nếu sản phẩm vừa được kích hoạt từ trạng thái không hoạt động
-    if (wasInactive && willBeActive) {
-      try {
-        console.log('Product activated, sending notification...');
-        const notificationResult = await notificationService.notifyNewProduct(product);
-        console.log('Activation notification sent:', notificationResult);
-      } catch (notificationError) {
-        console.error('Failed to send activation notification:', notificationError);
-      }
-    }
-
     // Nếu có ảnh mới → xoá ảnh cũ
     // if ( req.files && req.files.length > 0) {
     //   const oldImages = product.images;

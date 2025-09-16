@@ -17,11 +17,12 @@ const productNNDTSchema = new mongoose.Schema({
         type: Number,
         default: "0"
     },
-    images: {
-        type: [String],
-        require: true,
-        default: [],
-    },
+    images: [
+        {
+            url: { type: String },
+            imageId: { type: String }, // Cloudinary public_id
+        },
+    ],
     categorynndt: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CategoryNongNghiepDoThi',
