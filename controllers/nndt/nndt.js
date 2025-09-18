@@ -118,13 +118,6 @@ exports.getProductNNDTsByFavourite = async (req, res) => {
 }
 
 
-
-
-// Kiểm tra quyền cập nhật
-// if (!req.user.isAdmin && req.user.id !== product.creatorId.toString()) {
-//   return res.status(403).json({ message: 'Không có quyền cập nhật' });
-// }
-
 exports.updateProductNNDT = async (req, res) => {
   try {
       const { id } = req.params;
