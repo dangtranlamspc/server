@@ -16,7 +16,6 @@ router.delete('/:id', protect, isAdmin, productController.deleteProduct);
 router.get('/category/:categoryId', productController.getProductsByCategory);
 router.get('/with-favourites', productController.getProductsByFavourite);
 router.get('/categories', categoryController.getAllCategories);
-router.get('/:id/reviews', productController.getProductWithReview);
 
 
 module.exports = router;
