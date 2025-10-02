@@ -7,7 +7,7 @@ const { protect } = require('../middleware/auth.middleware')
 router.get('/product/:productId', reviewController.getProductReview);
 
 // Protected routes (require authentication)
-router.post('/', protect, reviewController.createReview);
+router.post('/',protect, reviewController.createReview);
 router.put('/:reviewId', protect, reviewController.updateReview);
 router.delete('/:reviewId', protect, reviewController.deleteReview);
 router.post('/:reviewId/helpful', protect, reviewController.markHelpful);

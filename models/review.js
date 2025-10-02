@@ -67,8 +67,9 @@ const reviewSchema = new mongoose.Schema({
 reviewSchema.index({ userId: 1, productId: 1 }, { unique: true });
 
 reviewSchema.statics.calculateAverageRating = async function (productId) {
+
     const result = await this.aggregate([
-        { $match: { productId: mongoose.Types.ObjectId(productId), status: 'approved' } },
+        { $match: { productId: new mongoose.Types.ObjectId(productId), status: 'approved' } },
         {
             $group: {
                 _id: '$productId',

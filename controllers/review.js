@@ -6,7 +6,14 @@ exports.createReview = async (req, res) => {
     try {
         const { productId, productType, rating, comment, images } = req.body;
 
-        const userId = req.user._id;
+        const userId = req.user?._id || req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                error: 'Unauthorized - User ID not found'
+            });
+        }
 
         const existingReview = await Review.findOne({ userId, productId });
         if (existingReview) {
@@ -38,7 +45,7 @@ exports.createReview = async (req, res) => {
         const stats = await Review.calculateAverageRating(productId);
         await Product.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
-            rating_count: stats.totalReview,
+            rating_count: stats.totalReviews,
         });
 
         await review.populate('userId', 'name avatar');
