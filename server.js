@@ -20,7 +20,7 @@ const categoryCTGDRouter = require('./routes/ctgd/categoryCTGD')
 const ctgdRouter = require('./routes/ctgd/ctgd')
 const categoryTinTucRouter = require('./routes/tintucs/categoryTinTuc')
 const tintucRouter = require('./routes/tintucs/tintuc')
-const reviewRouter = require("./routes/review")
+const reviewRouter = require('./routes/review')
 
 const app = express();
 
@@ -50,6 +50,7 @@ app.use('/api/ctgds', ctgdRouter)
 app.use('/api/categoryTinTuc', categoryTinTucRouter)
 app.use('/api/tintucs', tintucRouter)
 app.use('/api/review', reviewRouter)
+
 startTokenCleanup();
 
 

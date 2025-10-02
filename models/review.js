@@ -58,8 +58,8 @@ const reviewSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'approved', 'rejected'],
-        default: 'approved',
-    },
+        default: 'approved'
+    }
 }, {
     timestamps: true
 });
@@ -68,22 +68,17 @@ reviewSchema.index({ userId: 1, productId: 1 }, { unique: true });
 
 reviewSchema.statics.calculateAverageRating = async function (productId) {
     const result = await this.aggregate([
-        {
-            $match: {
-                productId: mongoose.Types.ObjectId(productId),
-                status: 'approved',
-            }
-        },
+        { $match: { productId: mongoose.Types.ObjectId(productId), status: 'approved' } },
         {
             $group: {
                 _id: '$productId',
-                averageRating: { $abg: '$rating' },
-                totalReview: { $sum: 1 }
+                averageRating: { $avg: '$rating' },
+                totalReviews: { $sum: 1 }
             }
         }
     ]);
 
-    return result[0] || { averageRating: 0, totalReview: 0 };
+    return result[0] || { averageRating: 0, totalReviews: 0 };
 };
 
 module.exports = mongoose.model('Review', reviewSchema)
