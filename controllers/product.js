@@ -1,6 +1,8 @@
 const Product = require('../models/product')
 const Category = require('../models/category')
 const Favourite = require('../models/favourite')
+const mongoose = require('mongoose')
+const Review = require('../models/review')
 const cloudinary = require('../utils/cloudinary')
 
 
@@ -111,14 +113,6 @@ exports.getProductsByFavourite = async (req, res) => {
   }
 }
 
-
-
-
-// Kiểm tra quyền cập nhật
-// if (!req.user.isAdmin && req.user.id !== product.creatorId.toString()) {
-//   return res.status(403).json({ message: 'Không có quyền cập nhật' });
-// }
-
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -146,12 +140,6 @@ exports.updateProduct = async (req, res) => {
       oldImages = [];
     }
 
-    // // Debug logs
-    // console.log("=== UPDATE PRODUCT DEBUG ===");
-    // console.log("Product ID:", id);
-    // console.log("Current product images:", product.images);
-    // console.log("Old images from frontend:", oldImages);
-    // console.log("New files from multer:", req.files?.length || 0);
 
     // 🆕 Lấy ảnh mới từ multer-storage-cloudinary
     let newImages = [];
@@ -243,37 +231,6 @@ exports.getProductById = async (req, res) => {
   }
 };
 
-// exports.getProductsByCategory = async (req, res) => {
-//   try {
-//     const { categoryId } = req.params;
-//     const { page = 1, limit = 10, search = '' } = req.query;
-
-//     const query = {
-//       category: categoryId,
-//       name: { $regex: search, $options: 'i' },
-//     };
-
-//     const products = await Product.find({query, isActive : true})
-//       .sort({ createdAt: -1 })
-//       .skip((page - 1) * limit)
-//       .limit(Number(limit))
-//       .populate('category', 'name');
-
-//     const total = await Product.countDocuments(query);
-
-//     res.json({
-//       total,
-//       page: Number(page),
-//       totalPages: Math.ceil(total / limit),
-//       products,
-//     });
-
-//     console.log(products)
-//   } catch (error) {
-//     res.status(500).json({ message: 'Lỗi khi lấy sản phẩm theo category', error: error.message });
-//   }
-// };
-
 exports.getProductsByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
@@ -349,3 +306,69 @@ exports.getProductNew = async (req, res) => {
     .limit(limit)
   res.json(products)
 };
+
+
+exports.getProductWithReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reviewPage = 1, reviewLimit = 5 } = req.query;
+
+    const product = await Product.findById(id)
+      .populate('category', 'name');
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sản phẩm'
+      });
+    };
+
+    const reviews = await Review.find({
+      productId: id,
+      status: 'approved',
+    })
+      .populate('userId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(reviewLimit))
+      .skip((parseInt(reviewPage) - 1) * parseInt(reviewLimit));
+
+    const totalReviews = await Review.countDocuments({
+      productId: id,
+      status: 'approved'
+    });
+
+    const ratingDistribution = await Review.aggregate([
+      { $match: { productId: mongoose.Types.ObjectId(id), status: 'approved' } },
+      {
+        $group: {
+          _id: '$rating',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: -1 }
+      },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        product,
+        reviews: {
+          items: reviews,
+          total: totalReviews,
+          averageRating: product.average_rating,
+          ratingCount: product.rating_count,
+          distribution: ratingDistribution
+        }
+      }
+    })
+  } catch (error) {
+    console.error('Get Product With Reviews Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server',
+      error: error.message
+    });
+  }
+}
