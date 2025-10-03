@@ -4,6 +4,7 @@ const Favourite = require('../models/favourite')
 const mongoose = require('mongoose')
 const Review = require('../models/review')
 const cloudinary = require('../utils/cloudinary')
+const notificationService = require('../services/notificationService')
 
 
 exports.createProduct = async (req, res) => {
@@ -26,7 +27,15 @@ exports.createProduct = async (req, res) => {
       isMoi,
       creatorId: req.user.id,
     });
-
+    await notificationService.sendToAll({
+      title: 'Sản phẩm mới',
+      body: 'Sản phẩm "${product.name}" vừa được thêm',
+      type: 'Product',
+      priority: 'medium',
+      actionUrl: `product/${product.id}`,
+      relatedId: product._id.toString(),
+      relatedType: 'product'
+    })
 
     res.status(201).json({ success: true, message: 'Tạo sản phẩm thành công', product });
   } catch (error) {
