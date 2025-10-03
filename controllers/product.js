@@ -27,12 +27,13 @@ exports.createProduct = async (req, res) => {
       isMoi,
       creatorId: req.user.id,
     });
+    
     await notificationService.sendToAll({
       title: 'Sản phẩm mới',
-      body: 'Sản phẩm "${product.name}" vừa được thêm',
-      type: 'Product',
+      body: `Sản phẩm "${product.name}" vừa được thêm`,
+      type: 'product',
       priority: 'medium',
-      actionUrl: `product/${product.id}`,
+      actionUrl: `/product/${product.id}`,
       relatedId: product._id.toString(),
       relatedType: 'product'
     })
