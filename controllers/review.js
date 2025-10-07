@@ -104,13 +104,13 @@ exports.createReview = async (req, res) => {
             rating,
             comment: comment.trim(),
             images: formattedImages,
-            status: 'approved' // Hoặc 'pending' nếu cần duyệt
+            status: 'approved'
         });
 
         await review.save();
 
         // Tính toán lại rating trung bình cho sản phẩm
-        const stats = await Review.calculateAverageRating(productId);
+        const stats = await Review.calculateAverageRating(productId, productType);
         
         await ProductModel.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
@@ -238,11 +238,11 @@ exports.updateReview = async (req, res) => {
         await review.save();
 
         const ProductModel = getProductModel(review.productType);
-        const stats = await Review.calculateAverageRating(review.productId);
+        const stats = await Review.calculateAverageRating(review.productId, review.productType);
 
         await ProductModel.findByIdAndUpdate(review.productId, {
             average_rating: stats.averageRating,
-            rating_count: stats.totalReview,
+            rating_count: stats.totalReviews,
         });
 
         await review.populate('userId', 'name avatar');
@@ -363,7 +363,7 @@ exports.getRatingStats = async (req, res) => {
             });
         }
 
-        const stats = await Review.calculateAverageRating(productId);
+        const stats = await Review.calculateAverageRating(productId, productType);
 
         // Đếm số lượng review theo từng mức sao
         const ratingBreakdown = await Review.aggregate([
@@ -428,10 +428,10 @@ exports.replyReview = async (req, res) => {
     try {
         const { reviewId } = req.params;
         const { comment } = req.body;
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         // Check if user is admin/shop owner
-        if (!req.user.isAdmin && !req.user.isShopOwner) {
+        if (!req.user.role === 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Bạn không có quyền trả lời đánh giá'

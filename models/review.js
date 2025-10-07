@@ -86,7 +86,14 @@ reviewSchema.statics.calculateAverageRating = async function (productId, product
         }
     ]);
 
-    return result[0] || { averageRating: 0, totalReviews: 0 };
+    if (result.length > 0) {
+        return {
+            averageRating: parseFloat(result[0].averageRating.toFixed(1)),
+            totalReviews: result[0].totalReviews
+        };
+    }
+
+    return { averageRating: 0, totalReviews: 0 };
 };
 
 module.exports = mongoose.model('Review', reviewSchema)
