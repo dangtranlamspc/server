@@ -28,20 +28,23 @@ exports.createReview = async (req, res) => {
             });
         }
 
+        // Validate productType
         if (!productType || !PRODUCT_MODELS[productType]) {
             return res.status(400).json({
                 success: false,
-                error: `Loại sản phẩm "${productType}" không hợp lệ. Các loại hợp lệ : ${Object.keys(PRODUCT_MODELS).join(', ')}`
+                error: `Loại sản phẩm không hợp lệ. Các loại hợp lệ: ${Object.keys(PRODUCT_MODELS).join(', ')}`
             });
         }
 
+        // Validate rating
         if (!rating || rating < 1 || rating > 5) {
             return res.status(400).json({
                 success: false,
                 error: 'Đánh giá phải từ 1 đến 5 sao'
             });
-        };
+        }
 
+        // Validate comment
         if (!comment || comment.trim().length === 0) {
             return res.status(400).json({
                 success: false,
@@ -49,6 +52,7 @@ exports.createReview = async (req, res) => {
             });
         }
 
+        // Validate ObjectId
         if (!mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({
                 success: false,
@@ -56,7 +60,13 @@ exports.createReview = async (req, res) => {
             });
         }
 
-        const existingReview = await Review.findOne({ userId, productId, productType });
+        // Kiểm tra đã review chưa
+        const existingReview = await Review.findOne({ 
+            userId, 
+            productId: mongoose.Types.ObjectId.createFromHexString(productId),
+            productType
+        });
+
         if (existingReview) {
             return res.status(400).json({
                 success: false,
@@ -64,41 +74,68 @@ exports.createReview = async (req, res) => {
             });
         }
 
+        // Lấy model tương ứng với productType
         const ProductModel = getProductModel(productType);
 
+        // Kiểm tra sản phẩm có tồn tại không
         const product = await ProductModel.findById(productId);
         if (!product) {
             return res.status(404).json({
                 success: false,
-                error: 'Không tìm thấy sản phẩm'
+                error: `Không tìm thấy sản phẩm`
             });
         }
 
+        // Format images nếu có
+        const formattedImages = images && Array.isArray(images) 
+            ? images.map(img => {
+                if (typeof img === 'string') {
+                    return { url: img, imageId: '' };
+                }
+                return img;
+            })
+            : [];
+
+        // Tạo review mới
         const review = new Review({
-            productId,
+            productId: mongoose.Types.ObjectId.createFromHexString(productId),
             productType,
             userId,
             rating,
             comment: comment.trim(),
-            images: images || []
+            images: formattedImages,
+            status: 'approved' // Hoặc 'pending' nếu cần duyệt
         });
 
         await review.save();
 
+        // Tính toán lại rating trung bình cho sản phẩm
         const stats = await Review.calculateAverageRating(productId);
+        
         await ProductModel.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
             rating_count: stats.totalReviews,
         });
 
+        // Populate thông tin user
         await review.populate('userId', 'name avatar');
+
         res.status(201).json({
             success: true,
             data: review,
-            message: 'Dánh giá đã được gửi thành công',
+            message: 'Đánh giá đã được gửi thành công',
         });
     } catch (error) {
         console.error('Create Review Error:', error);
+        
+        // Xử lý lỗi duplicate key (đã review rồi)
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Bạn đã đánh giá sản phẩm này rồi'
+            });
+        }
+
         res.status(500).json({
             success: false,
             error: error.message || 'Không thể tạo đánh giá'
@@ -109,14 +146,9 @@ exports.createReview = async (req, res) => {
 exports.getProductReview = async (req, res) => {
     try {
         const { productId, productType } = req.params;
-        const {
-            page = 1,
-            limit = 10,
-            rating,
-            sortBy = 'createdAt',
-            order = 'desc',
-        } = req.query;
+        const { page = 1, limit = 10, rating, sort = 'newest' } = req.query;
 
+        // Validate productType
         if (!PRODUCT_MODELS[productType]) {
             return res.status(400).json({
                 success: false,
@@ -137,10 +169,12 @@ exports.getProductReview = async (req, res) => {
             status: 'approved'
         };
 
+        // Lọc theo rating nếu có
         if (rating) {
             query.rating = parseInt(rating);
         }
 
+        // Xác định sort order
         let sortOption = { createdAt: -1 }; // Mặc định: mới nhất
         if (sort === 'oldest') {
             sortOption = { createdAt: 1 };
@@ -154,41 +188,24 @@ exports.getProductReview = async (req, res) => {
 
         const reviews = await Review.find(query)
             .populate('userId', 'name avatar')
+            .populate('replies.userId', 'name avatar')
             .sort(sortOption)
             .limit(limit * 1)
-            .skip((page - 1) * limit);
+            .skip((page - 1) * limit)
+            .exec();
 
-        const total = await Review.countDocuments(query);
+        const count = await Review.countDocuments(query);
 
-        const ratingDistribution = await Review.aggregate([
-            { $match: { productId: mongoose.Types.ObjectId.createFromHexString(productId), status: 'approved' } },
-            {
-                $group: {
-                    _id: 'rating',
-                    count: { $sum: 1 }
-                }
-            },
-            { $sort: { _id: -1 } }
-        ]);
-
-        const stats = await Review.calculateAverageRating(productId);
-
-        res.json({
+        res.status(200).json({
             success: true,
-            data: {
-                reviews,
-                stats: {
-                    averageRating: stats.averageRating,
-                    totalReview: stats.totalReview,
-                    distribution: ratingDistribution
-                },
-                pagination: {
-                    total,
-                    page: parseInt(page),
-                    pages: Math.ceil(total / parseInt(limit))
-                }
+            data: reviews,
+            pagination: {
+                total: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: parseInt(page),
+                perPage: parseInt(limit)
             }
-        })
+        });
     } catch (error) {
         console.error('Get Reviews Error:', error);
         res.status(500).json({
