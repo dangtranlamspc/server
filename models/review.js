@@ -9,7 +9,8 @@ const reviewSchema = new mongoose.Schema({
     productType: {
         type: String,
         enum: ['Product', 'ProductNongNghiepDoThi', 'ProductConTrungGiaDung'],
-        required: true
+        required: true,
+        index: true
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -64,12 +65,18 @@ const reviewSchema = new mongoose.Schema({
     timestamps: true
 });
 
-reviewSchema.index({ userId: 1, productId: 1 }, { unique: true });
+reviewSchema.index({ userId: 1, productId: 1, productType: 1 }, { unique: true });
 
 reviewSchema.statics.calculateAverageRating = async function (productId) {
 
     const result = await this.aggregate([
-        { $match: { productId: mongoose.Types.ObjectId.createFromHexString(productId), status: 'approved' } },
+        {
+            $match: {
+                productId: mongoose.Types.ObjectId.createFromHexString(productId),
+                productType: productType,
+                status: 'approved'
+            }
+        },
         {
             $group: {
                 _id: '$productId',

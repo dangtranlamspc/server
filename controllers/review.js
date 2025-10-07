@@ -1,6 +1,19 @@
 const Review = require('../models/review')
-const Product = require('../models/product')
 const mongoose = require('mongoose')
+
+const PRODUCT_MODELS = {
+    'Product': require('../models/product'),
+    'ProductNongNghiepDoThi': require('../models/nndt/nndt'),
+    'ProductConTrungGiaDung': require('../models/ctgd/ctgs')
+};
+
+const getProductModel = (productType) => {
+    const model = PRODUCT_MODELS[productType];
+    if (!model) {
+        throw new Error(`Loại sản phẩm "${productType}" không hợp lệ. Các loại hợp lệ : ${Object.keys(PRODUCT_MODELS).join(', ')}`);
+    }
+    return model;
+};
 
 exports.createReview = async (req, res) => {
     try {
@@ -15,7 +28,35 @@ exports.createReview = async (req, res) => {
             });
         }
 
-        const existingReview = await Review.findOne({ userId, productId });
+        if (!productType || !PRODUCT_MODELS[productType]) {
+            return res.status(400).json({
+                success: false,
+                error: `Loại sản phẩm "${productType}" không hợp lệ. Các loại hợp lệ : ${Object.keys(PRODUCT_MODELS).join(', ')}`
+            });
+        }
+
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({
+                success: false,
+                error: 'Đánh giá phải từ 1 đến 5 sao'
+            });
+        };
+
+        if (!comment || comment.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Vui lòng nhập nội dung đánh giá'
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID sản phẩm không hợp lệ'
+            });
+        }
+
+        const existingReview = await Review.findOne({ userId, productId, productType });
         if (existingReview) {
             return res.status(400).json({
                 success: false,
@@ -23,7 +64,9 @@ exports.createReview = async (req, res) => {
             });
         }
 
-        const product = await Product.findById(productId);
+        const ProductModel = getProductModel(productType);
+
+        const product = await ProductModel.findById(productId);
         if (!product) {
             return res.status(404).json({
                 success: false,
@@ -36,14 +79,14 @@ exports.createReview = async (req, res) => {
             productType,
             userId,
             rating,
-            comment,
+            comment: comment.trim(),
             images: images || []
         });
 
         await review.save();
 
         const stats = await Review.calculateAverageRating(productId);
-        await Product.findByIdAndUpdate(productId, {
+        await ProductModel.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
             rating_count: stats.totalReviews,
         });
@@ -65,7 +108,7 @@ exports.createReview = async (req, res) => {
 
 exports.getProductReview = async (req, res) => {
     try {
-        const { productId } = req.params;
+        const { productId, productType } = req.params;
         const {
             page = 1,
             limit = 10,
@@ -74,8 +117,23 @@ exports.getProductReview = async (req, res) => {
             order = 'desc',
         } = req.query;
 
+        if (!PRODUCT_MODELS[productType]) {
+            return res.status(400).json({
+                success: false,
+                error: 'Loại sản phẩm không hợp lệ'
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID sản phẩm không hợp lệ'
+            });
+        }
+
         const query = {
-            productId,
+            productId: mongoose.Types.ObjectId.createFromHexString(productId),
+            productType,
             status: 'approved'
         };
 
@@ -83,11 +141,22 @@ exports.getProductReview = async (req, res) => {
             query.rating = parseInt(rating);
         }
 
+        let sortOption = { createdAt: -1 }; // Mặc định: mới nhất
+        if (sort === 'oldest') {
+            sortOption = { createdAt: 1 };
+        } else if (sort === 'highest') {
+            sortOption = { rating: -1, createdAt: -1 };
+        } else if (sort === 'lowest') {
+            sortOption = { rating: 1, createdAt: -1 };
+        } else if (sort === 'helpful') {
+            sortOption = { helpfulCount: -1, createdAt: -1 };
+        }
+
         const reviews = await Review.find(query)
             .populate('userId', 'name avatar')
-            .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-            .limit(parseInt(limit))
-            .skip((parseInt(page) - 1) * parseInt(limit));
+            .sort(sortOption)
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
 
         const total = await Review.countDocuments(query);
 
@@ -151,13 +220,16 @@ exports.updateReview = async (req, res) => {
 
         await review.save();
 
+        const ProductModel = getProductModel(review.productType);
         const stats = await Review.calculateAverageRating(review.productId);
-        await Product.findByIdAndUpdate(review.productId, {
+
+        await ProductModel.findByIdAndUpdate(review.productId, {
             average_rating: stats.averageRating,
             rating_count: stats.totalReview,
         });
 
         await review.populate('userId', 'name avatar');
+        await review.populate('replies.userId', 'name avatar');
 
         res.json({
             success: true,
@@ -187,8 +259,14 @@ exports.deleteReview = async (req, res) => {
             });
         }
 
-        const stats = await Review.calculateAverageRating(review.productId);
-        await Product.findByIdAndUpdate(review.productId, {
+        const productId = review.productId.toString();
+        const productType = review.productType;
+
+        await review.deleteOne();
+
+        const ProductModel = getProductModel(productType);
+        const stats = await Review.calculateAverageRating(productId);
+        await ProductModel.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
             rating_count: stats.totalReviews
         });

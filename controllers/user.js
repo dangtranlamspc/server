@@ -12,7 +12,7 @@ const generateToken = (user) => {
 };
 
 const calculateTokenExpiry = () => {
-  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 1 day
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 };
 
 exports.register = async (req, res) => {
