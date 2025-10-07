@@ -328,6 +328,85 @@ exports.markHelpful = async (req, res) => {
     }
 }
 
+exports.getRatingStats = async (req, res) => {
+    try {
+        const { productId, productType } = req.params;
+
+        if (!PRODUCT_MODELS[productType]) {
+            return res.status(400).json({
+                success: false,
+                error: 'Loại sản phẩm không hợp lệ'
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({
+                success: false,
+                error: 'ID sản phẩm không hợp lệ'
+            });
+        }
+
+        const stats = await Review.calculateAverageRating(productId);
+
+        // Đếm số lượng review theo từng mức sao
+        const ratingBreakdown = await Review.aggregate([
+            {
+                $match: {
+                    productId: mongoose.Types.ObjectId.createFromHexString(productId),
+                    productType: productType,
+                    status: 'approved'
+                }
+            },
+            {
+                $group: {
+                    _id: '$rating',
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { _id: -1 }
+            }
+        ]);
+
+        // Format breakdown thành object dễ đọc
+        const breakdown = {
+            5: 0,
+            4: 0,
+            3: 0,
+            2: 0,
+            1: 0
+        };
+
+        ratingBreakdown.forEach(item => {
+            breakdown[item._id] = item.count;
+        });
+
+        // Tính phần trăm cho mỗi mức sao
+        const percentages = {};
+        Object.keys(breakdown).forEach(star => {
+            percentages[star] = stats.totalReviews > 0
+                ? Math.round((breakdown[star] / stats.totalReviews) * 100)
+                : 0;
+        });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                averageRating: stats.averageRating,
+                totalReviews: stats.totalReviews,
+                breakdown,
+                percentages
+            }
+        });
+    } catch (error) {
+        console.error('Get Rating Stats Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Không thể lấy thống kê'
+        });
+    }
+};
+
 exports.replyReview = async (req, res) => {
     try {
         const { reviewId } = req.params;

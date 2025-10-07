@@ -4,7 +4,9 @@ const reviewController = require('../controllers/review');
 const { protect } = require('../middleware/auth.middleware')
 
 
-router.get('/product/:productId', reviewController.getProductReview);
+router.get('/:productType/:productId', reviewController.getProductReview);
+
+router.get('/:productType/:productId/stats', reviewController.getRatingStats);
 
 // Protected routes (require authentication)
 router.post('/',protect, reviewController.createReview);
