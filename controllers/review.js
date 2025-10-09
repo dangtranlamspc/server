@@ -282,7 +282,7 @@ exports.deleteReview = async (req, res) => {
         await review.deleteOne();
 
         const ProductModel = getProductModel(productType);
-        const stats = await Review.calculateAverageRating(productId);
+        const stats = await Review.calculateAverageRating(productId, productType);
         await ProductModel.findByIdAndUpdate(productId, {
             average_rating: stats.averageRating,
             rating_count: stats.totalReviews
@@ -431,7 +431,7 @@ exports.replyReview = async (req, res) => {
         const userId = req.user.id;
 
         // Check if user is admin/shop owner
-        if (!req.user.role === 'admin') {
+        if (!req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 error: 'Bạn không có quyền trả lời đánh giá'
